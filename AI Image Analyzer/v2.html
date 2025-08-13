@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .spinner {
+            border-top-color: #3498db;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        /* Styling for the AI selection toggle */
+        #ai-toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 120px;
+            height: 34px;
+        }
+        #ai-toggle-switch .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e5e7eb;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        #ai-toggle-switch .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 55px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 22px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        #ai-toggle-switch input:checked + .slider {
+            background-color: #4f46e5;
+        }
+        #ai-toggle-switch input:checked + .slider:before {
+            transform: translateX(55px);
+        }
+        #ai-toggle-switch .labels {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            color: #4b5563;
+            font-weight: 500;
+            font-size: 12px;
+            z-index: 1;
+            pointer-events: none;
+        }
+        #ai-toggle-switch input:checked ~ .labels .gemini-label {
+            color: white;
+        }
+        #ai-toggle-switch .chatgpt-label {
+             color: white;
+        }
+         #ai-toggle-switch input:checked ~ .labels .chatgpt-label {
+            color: #4b5563;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex flex-col h-screen overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-white shadow-md sticky top-0 z-20 flex-shrink-0">
+        <nav class="container mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+            <h1 class="text-xl sm:text-2xl font-bold text-slate-900">AI Image Analyzer</h1>
+            <button id="settings-btn" class="p-2 rounded-full hover:bg-slate-200 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8 flex-grow grid grid-cols-1 lg:grid-cols-2 gap-8 min-h-0">
+            
+        <!-- Left Panel: Image Upload and Prompt -->
+        <div class="flex flex-col">
+            <div id="image-drop-zone" class="flex-grow flex flex-col justify-center items-center border-2 border-dashed border-slate-400 rounded-lg p-6 text-center cursor-pointer bg-white hover:bg-slate-50 transition-colors">
+                <div id="upload-prompt" class="space-y-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                    <p class="text-slate-600 font-medium">Drag & drop an image here</p>
+                    <p class="text-sm text-slate-500">or</p>
+                    <button type="button" id="browse-btn" class="font-semibold text-indigo-600 hover:text-indigo-500 focus:outline-none">click to browse</button>
+                </div>
+                <img id="image-preview" src="" class="hidden max-h-full max-w-full object-contain rounded-md" alt="Image preview" />
+            </div>
+            <input type="file" id="file-input" class="hidden" accept="image/png, image/jpeg, image/webp">
+
+            <div class="mt-4">
+                <label for="custom-prompt" class="block text-sm font-medium text-slate-700 mb-1">Custom Instructions</label>
+                <textarea id="custom-prompt" rows="3" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="e.g., Describe this image in a poetic way..."></textarea>
+            </div>
+             <button id="analyze-btn" class="mt-4 w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed flex items-center justify-center transition-all">
+                <span id="analyze-btn-text">Analyze Image</span>
+                <div id="loading-spinner" class="hidden spinner h-5 w-5 ml-3 border-4 border-white/20 rounded-full"></div>
+            </button>
+        </div>
+
+        <!-- Right Panel: Analysis Result & Chat -->
+        <div class="bg-white rounded-lg shadow p-6 flex flex-col min-h-0">
+            <h2 class="text-lg font-semibold text-slate-900 mb-4 flex-shrink-0">Analysis & Chat</h2>
+            <div id="result-container" class="flex-grow overflow-y-auto bg-slate-50 p-4 rounded-md prose prose-slate max-w-none space-y-4">
+                <p class="text-slate-500">Your image analysis will appear here...</p>
+            </div>
+            <div id="chat-interface" class="mt-4 flex-shrink-0">
+                <div class="flex items-start space-x-3">
+                    <textarea id="chat-input" rows="1" class="flex-grow p-2 border border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ask a follow-up question..."></textarea>
+                    <button id="send-chat-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300">Send</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-30 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md transform transition-all" id="settings-modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Settings</h2>
+                <button id="close-modal-btn" class="p-1 rounded-full hover:bg-slate-200"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
+            
+            <div class="space-y-6">
+                <div class="flex items-center justify-between">
+                    <label class="block text-sm font-medium text-slate-700">Analysis Model</label>
+                    <label id="ai-toggle-switch">
+                        <input type="checkbox" id="ai-toggle-checkbox" class="sr-only">
+                        <span class="slider"></span>
+                        <div class="labels">
+                            <span class="gemini-label">Gemini</span>
+                            <span class="chatgpt-label">ChatGPT</span>
+                        </div>
+                    </label>
+                </div>
+
+                <div id="gemini-settings">
+                    <label for="gemini-api-key-input" class="block text-sm font-medium text-slate-700">Gemini API Key</label>
+                    <input type="password" id="gemini-api-key-input" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter your Gemini API key">
+                </div>
+
+                <div id="chatgpt-settings" class="hidden">
+                    <label for="chatgpt-api-key-input" class="block text-sm font-medium text-slate-700">OpenAI API Key</label>
+                    <input type="password" id="chatgpt-api-key-input" class="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Enter your OpenAI API key">
+                </div>
+                <p class="mt-2 text-xs text-slate-500">Keys are stored in your browser's local storage.</p>
+            </div>
+
+            <div class="mt-8 flex justify-end">
+                <button id="save-settings-btn" class="bg-indigo-600 text-white font-bold py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Custom Message Modal -->
+    <div id="message-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-40 hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-sm text-center">
+            <p id="message-text" class="text-lg mb-4"></p>
+            <button id="close-message-btn" class="bg-indigo-600 text-white font-bold py-2 px-6 rounded-md hover:bg-indigo-700">OK</button>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Element References ---
+            const imageDropZone = document.getElementById('image-drop-zone');
+            const fileInput = document.getElementById('file-input');
+            const browseBtn = document.getElementById('browse-btn');
+            const imagePreview = document.getElementById('image-preview');
+            const uploadPrompt = document.getElementById('upload-prompt');
+            const customPromptInput = document.getElementById('custom-prompt');
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const analyzeBtnText = document.getElementById('analyze-btn-text');
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const resultContainer = document.getElementById('result-container');
+            const chatInput = document.getElementById('chat-input');
+            const sendChatBtn = document.getElementById('send-chat-btn');
+            const settingsBtn = document.getElementById('settings-btn');
+            const settingsModal = document.getElementById('settings-modal');
+            const closeModalBtn = document.getElementById('close-modal-btn');
+            const saveSettingsBtn = document.getElementById('save-settings-btn');
+            const aiToggleCheckbox = document.getElementById('ai-toggle-checkbox');
+            const geminiSettings = document.getElementById('gemini-settings');
+            const chatgptSettings = document.getElementById('chatgpt-settings');
+            const geminiApiKeyInput = document.getElementById('gemini-api-key-input');
+            const chatgptApiKeyInput = document.getElementById('chatgpt-api-key-input');
+            const messageModal = document.getElementById('message-modal');
+            const messageText = document.getElementById('message-text');
+            const closeMessageBtn = document.getElementById('close-message-btn');
+
+            // --- State Variables ---
+            let imageData = null; // { base64: '...', mimeType: '...' }
+            let chatHistory = [];
+            let selectedAI = 'gemini';
+            let isAnalyzing = false;
+
+            // --- Utility Functions ---
+            const showMessage = (message) => {
+                messageText.textContent = message;
+                messageModal.classList.remove('hidden');
+            };
+            const hideMessage = () => messageModal.classList.add('hidden');
+            
+            const setButtonLoadingState = (isLoading) => {
+                isAnalyzing = isLoading;
+                analyzeBtn.disabled = isLoading;
+                sendChatBtn.disabled = isLoading;
+                loadingSpinner.classList.toggle('hidden', !isLoading);
+                analyzeBtnText.textContent = isLoading ? 'Analyzing...' : 'Analyze Image';
+                if (isLoading) {
+                    sendChatBtn.innerHTML = `<div class="spinner h-5 w-5 border-4 border-white/20 rounded-full"></div>`;
+                } else {
+                    sendChatBtn.textContent = 'Send';
+                }
+            };
+
+            const markdownToHtml = (text) => {
+                return text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/^- (.*$)/gm, '<ul><li>$1</li></ul>')
+                    .replace(/(\n\s*){2,}/g, '<br><br>')
+                    .replace(/<\/ul>\s*<ul>/g, '');
+            };
+
+            const appendToChat = (role, content) => {
+                const messageDiv = document.createElement('div');
+                const formattedContent = markdownToHtml(content);
+                if (role === 'user') {
+                    messageDiv.className = 'bg-indigo-100 p-3 rounded-lg';
+                    messageDiv.innerHTML = `<p class="font-semibold text-indigo-800">You</p><p>${formattedContent}</p>`;
+                } else { // model
+                    messageDiv.className = 'bg-slate-200 p-3 rounded-lg';
+                    messageDiv.innerHTML = `<p class="font-semibold text-slate-800">${selectedAI === 'gemini' ? 'Gemini' : 'ChatGPT'}</p><div class="prose prose-slate max-w-none">${formattedContent}</div>`;
+                }
+                resultContainer.appendChild(messageDiv);
+                resultContainer.scrollTop = resultContainer.scrollHeight;
+            };
+
+            // --- Settings Logic ---
+            const loadSettings = () => {
+                geminiApiKeyInput.value = localStorage.getItem('geminiApiKey') || '';
+                chatgptApiKeyInput.value = localStorage.getItem('chatgptApiKey') || '';
+                selectedAI = localStorage.getItem('selectedAI') || 'gemini';
+                aiToggleCheckbox.checked = selectedAI === 'chatgpt';
+                updateSettingsView();
+            };
+
+            const saveSettings = () => {
+                localStorage.setItem('geminiApiKey', geminiApiKeyInput.value);
+                localStorage.setItem('chatgptApiKey', chatgptApiKeyInput.value);
+                selectedAI = aiToggleCheckbox.checked ? 'chatgpt' : 'gemini';
+                localStorage.setItem('selectedAI', selectedAI);
+                showMessage('Settings saved successfully!');
+                settingsModal.classList.add('hidden');
+            };
+            
+            const updateSettingsView = () => {
+                if (aiToggleCheckbox.checked) { // ChatGPT selected
+                    geminiSettings.classList.add('hidden');
+                    chatgptSettings.classList.remove('hidden');
+                } else { // Gemini selected
+                    geminiSettings.classList.remove('hidden');
+                    chatgptSettings.classList.add('hidden');
+                }
+            };
+
+            // --- File Handling ---
+            const handleFile = (file) => {
+                if (!file || !file.type.startsWith('image/')) {
+                    showMessage('Please select a valid image file (PNG, JPG, WEBP).');
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64String = reader.result;
+                    imagePreview.src = base64String;
+                    imagePreview.classList.remove('hidden');
+                    uploadPrompt.classList.add('hidden');
+                    imageData = { base64: base64String, mimeType: file.type };
+                };
+                reader.readAsDataURL(file);
+            };
+
+            // --- API Call Logic ---
+            const callVisionAPI = async () => {
+                if (isAnalyzing) return;
+                
+                const prompt = chatHistory.find(m => m.role === 'user').parts[0].text;
+                let apiKey, apiUrl, payload;
+
+                setButtonLoadingState(true);
+
+                if (selectedAI === 'gemini') {
+                    apiKey = localStorage.getItem('geminiApiKey') || "";
+                    apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                    payload = { contents: chatHistory };
+                } else { // chatgpt
+                    apiKey = localStorage.getItem('chatgptApiKey') || "";
+                    apiUrl = 'https://api.openai.com/v1/chat/completions';
+                    const messages = [{
+                        role: 'user',
+                        content: [
+                            { type: 'text', text: prompt },
+                            { type: 'image_url', image_url: { url: imageData.base64 } }
+                        ]
+                    }];
+                    payload = { model: 'gpt-4o', messages: messages };
+                }
+
+                if (!apiKey) {
+                    showMessage(`Please set your ${selectedAI === 'gemini' ? 'Gemini' : 'OpenAI'} API Key in settings.`);
+                    setButtonLoadingState(false);
+                    return;
+                }
+
+                try {
+                    const headers = { 'Content-Type': 'application/json' };
+                    if (selectedAI === 'chatgpt') {
+                        headers['Authorization'] = `Bearer ${apiKey}`;
+                    }
+                    
+                    const response = await fetch(apiUrl, { method: 'POST', headers, body: JSON.stringify(payload) });
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error?.message || `HTTP error! status: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    
+                    let text;
+                    if (selectedAI === 'gemini') {
+                        text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    } else { // chatgpt
+                        text = result.choices?.[0]?.message?.content;
+                    }
+
+                    if (text) {
+                        chatHistory.push({ role: 'model', parts: [{ text }] });
+                        appendToChat('model', text);
+                    } else {
+                        throw new Error('Invalid response format from API.');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    appendToChat('model', `<strong class="text-red-500">Error:</strong> ${error.message}`);
+                } finally {
+                    setButtonLoadingState(false);
+                }
+            };
+
+            const startNewAnalysis = () => {
+                if (!imageData) {
+                    showMessage('Please upload an image first.');
+                    return;
+                }
+                const prompt = customPromptInput.value || "Describe this image in detail.";
+                resultContainer.innerHTML = '';
+                
+                chatHistory = [{
+                    role: 'user',
+                    parts: [
+                        { text: prompt },
+                        { inlineData: { mimeType: imageData.mimeType, data: imageData.base64.split(',')[1] } }
+                    ]
+                }];
+
+                appendToChat('user', prompt);
+                callVisionAPI();
+            };
+            
+            const sendFollowUp = () => {
+                 // Implement follow-up logic here if needed for conversational context
+                 showMessage("Follow-up chat is not yet fully implemented in this version.");
+            }
+
+            // --- Event Listeners ---
+            imageDropZone.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); imageDropZone.classList.add('border-indigo-500', 'bg-indigo-50'); });
+            imageDropZone.addEventListener('dragleave', (e) => { e.preventDefault(); e.stopPropagation(); imageDropZone.classList.remove('border-indigo-500', 'bg-indigo-50'); });
+            imageDropZone.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); imageDropZone.classList.remove('border-indigo-500', 'bg-indigo-50'); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+            imageDropZone.addEventListener('click', () => fileInput.click());
+            browseBtn.addEventListener('click', (e) => { e.stopPropagation(); fileInput.click(); });
+            fileInput.addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0]); });
+            
+            settingsBtn.addEventListener('click', () => settingsModal.classList.remove('hidden'));
+            closeModalBtn.addEventListener('click', () => settingsModal.classList.add('hidden'));
+            saveSettingsBtn.addEventListener('click', saveSettings);
+            aiToggleCheckbox.addEventListener('change', updateSettingsView);
+            settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) settingsModal.classList.add('hidden'); });
+
+            closeMessageBtn.addEventListener('click', hideMessage);
+            analyzeBtn.addEventListener('click', startNewAnalysis);
+            sendChatBtn.addEventListener('click', sendFollowUp);
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendFollowUp();
+                }
+            });
+
+            // --- Initialization ---
+            loadSettings();
+        });
+    </script>
+</body>
+</html>
